@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Make 24: Auto Chain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            position: relative;
+        }
+        .tile {
+            aspect-ratio: 1;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .tile-selected-trace {
+            transform: scale(0.92);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+        }
+        .tile-success {
+            transform: scale(1.08);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.9);
+            border-color: #10b981 !important;
+            animation: pulseSuccess 0.4s infinite alternate;
+        }
+        @keyframes pulseSuccess {
+            0% { transform: scale(1.05); }
+            100% { transform: scale(1.12); }
+        }
+        .tile-selected-swap {
+            transform: scale(1.08);
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.9);
+            z-index: 10;
+        }
+        .tile-swap-target {
+            animation: pulse-border 1s infinite alternate;
+        }
+        @keyframes pulse-border {
+            0% { border-color: rgba(245, 158, 11, 0.4); transform: scale(0.98); }
+            100% { border-color: rgba(245, 158, 11, 1); transform: scale(1.02); }
+        }
+        .swap-animating {
+            z-index: 20 !important;
+        }
+        .fever-bg {
+            background: linear-gradient(135deg, #1e1b4b 0%, #311042 50%, #450a0a 100%);
+            animation: feverGlow 1.5s infinite alternate;
+        }
+        @keyframes feverGlow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(30deg); }
+        }
+        .badge-pop {
+            animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .time-plus-pop {
+            animation: timePlus 0.8s ease-out forwards;
+        }
+        @keyframes timePlus {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-20px) scale(1.3); opacity: 0; }
+        }
+        .time-minus-pop {
+            animation: timeMinus 0.8s ease-out forwards;
+        }
+        @keyframes timeMinus {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(20px) scale(1.3); opacity: 0; }
+        }
+
+        /* 画面シェイク（誤答時の画面揺れエフェクト） */
+        .shake-screen {
+            animation: screenShake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes screenShake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .fever-meter-slot {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .fever-meter-active {
+            background-color: #f59e0b;
+            box-shadow: 0 0 12px #f59e0b;
+            transform: scale(1.1);
+        }
+        .title-glow {
+            text-shadow: 0 0 20px rgba(52, 211, 153, 0.6);
+        }
+    </style>
+</head>
+<body id="main-body" class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none transition-colors duration-500">
+
+    <!-- 1. タイトル画面 (TITLE SCREEN) -->
+    <div id="screen-title" class="w-full max-w-md bg-slate-800/90 rounded-3xl p-6 border border-slate-700 shadow-2xl backdrop-blur flex flex-col items-center text-center">
+        <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold mb-4 border border-emerald-500/30">
+            数字パズル
+        </div>
+        <h1 class="text-5xl font-black tracking-tight text-white mb-1 title-glow">
+            MAKE <span class="text-emerald-400">24</span>
+        </h1>
+        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6">Auto Chain Puzzle</p>
+
+        <!-- ルール説明カード -->
+        <div class="w-full bg-slate-900/80 rounded-2xl p-4 text-left border border-slate-700/80 mb-6 space-y-2 text-xs text-slate-300">
+            <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">①</span>
+                <span>数字を指でなぞって計算して「24」を作ろう。</span>
+            </div>
+            <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">②</span>
+                <span><b>4個以上の数字をつなぐとゲージが溜まりFEVERへ！</b></span>
+            </div>
+            <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">③</span>
+                <span>正解すると残り時間が増加！お題や長さに応じてハイスコアを狙え！</span>
+            </div>
+        </div>
+
+        <button id="start-game-btn" class="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-900 font-black py-4 rounded-2xl text-xl shadow-lg transition mb-3">
+            PLAY START
+        </button>
+        
+        <button id="show-ranking-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-3 rounded-2xl text-sm transition">
+            🏆 ハイスコアランキング
+        </button>
+    </div>
+
+    <!-- 2. メインゲーム画面 (GAME SCREEN) -->
+    <div id="screen-game" class="w-full max-w-md hidden flex-col items-center">
+        <!-- ヘッダー情報 -->
+        <div class="w-full bg-slate-800/90 rounded-2xl p-4 mb-3 shadow-lg border border-slate-700 flex justify-between items-center backdrop-blur">
+            <div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">SCORE</div>
+                <div id="score" class="text-3xl font-black text-yellow-400">0</div>
+            </div>
+            <div class="text-center bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">TARGET</div>
+                <div class="text-3xl font-black text-emerald-400">24</div>
+            </div>
+            <div class="text-right relative">
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">TIME</div>
+                <div id="timer" class="text-3xl font-black text-rose-400">60</div>
+                <div id="time-pop" class="absolute -top-3 right-0 font-black text-lg hidden pointer-events-none">+2s</div>
+            </div>
+        </div>
+
+        <!-- お題 ＆ フィーバーメーター ＆ 判定表示エリア -->
+        <div class="w-full bg-slate-800/90 rounded-xl p-3 mb-3 border border-slate-700 text-center shadow-md flex flex-col gap-2 backdrop-blur">
+            <div class="flex items-center justify-between px-2">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">お題:</span>
+                    <div id="required-op-badge" class="px-2.5 py-0.5 rounded-lg text-sm font-black bg-blue-600 text-white badge-pop">
+                        ＋ のみ
+                    </div>
+                </div>
+                
+                <!-- フィーバーメーター -->
+                <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-amber-400 font-black tracking-tighter mr-1">4+CHAIN:</span>
+                    <div id="meter-1" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                    <div id="meter-2" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                    <div id="meter-3" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                </div>
+            </div>
+
+            <div id="formula-display" class="text-slate-400 text-sm font-semibold tracking-wider min-h-[20px]">4個以上繋ぐとフィーバーゲージUP！</div>
+            <div id="result-display" class="text-2xl font-black text-cyan-400 min-h-[32px]">-</div>
+        </div>
+
+        <!-- モード切り替えコントロール -->
+        <div class="w-full bg-slate-800/90 rounded-xl p-2 mb-3 border border-slate-700 flex gap-2 backdrop-blur">
+            <button id="mode-trace-btn" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md">
+                <span>✏️ なぞって計算！</span>
+            </button>
+            <button id="mode-swap-btn" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600">
+                <span>🔀 パネル入れ替え！</span>
+            </button>
+        </div>
+
+        <!-- ゲームボード -->
+        <div id="board-container" class="relative w-full bg-slate-800/80 p-3 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur">
+            <div id="board" class="board-grid"></div>
+            <canvas id="line-canvas" class="absolute inset-0 pointer-events-none z-20"></canvas>
+        </div>
+
+        <!-- 下部ボタン -->
+        <div class="w-full flex gap-3 mt-4">
+            <button id="shuffle-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                <span>🎲 シャッフル (-5秒)</span>
+            </button>
+            <button id="quit-to-title-btn" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold px-5 py-3 rounded-xl shadow-lg transition">
+                🏠
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. ハイスコアランキング画面 (RANKING SCREEN) -->
+    <div id="screen-ranking" class="w-full max-w-md hidden flex-col items-center">
+        <div class="w-full bg-slate-800/90 rounded-3xl p-6 border border-slate-700 shadow-2xl backdrop-blur text-center">
+            <h2 class="text-3xl font-black text-yellow-400 mb-1">HIGH SCORES</h2>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-6">Top 5 Best Plays</p>
+
+            <div id="ranking-list" class="w-full space-y-2 mb-6">
+                <!-- JSで動的に追加 -->
+            </div>
+
+            <button id="ranking-back-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-3 rounded-2xl transition">
+                タイトルに戻る
+            </button>
+        </div>
+    </div>
+
+    <!-- ゲームオーバーモーダル -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center max-w-sm w-full shadow-2xl">
+            <h2 class="text-3xl font-black text-yellow-400 mb-2">TIME UP!</h2>
+            <p class="text-slate-400 mb-2">Final Score</p>
+            <div id="final-score" class="text-5xl font-extrabold text-white mb-6">0</div>
+            <div class="flex gap-2">
+                <button id="modal-ranking-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition">
+                    順位確認
+                </button>
+                <button id="modal-restart-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-3 rounded-xl transition">
+                    もう一度
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 5;
+        const TARGET_NUMBER = 24;
+        const NUMBERS = [1, 2, 3, 4, 6, 8, 12, 2, 3, 4, 6, 8, 24, 28, 30, 32, 36, 48];
+
+        const ALL_QUESTION_TYPES = [
+            { type: 'NORMAL_ADD', label: '＋ のみ (足し算)', ops: ['＋'], style: 'bg-blue-600 text-white', multiplier: 1.0 },
+            { type: 'NORMAL_MUL', label: '× のみ (掛け算)', ops: ['×'], style: 'bg-purple-600 text-white', multiplier: 1.5 },
+            { type: 'NORMAL_SUB', label: '− のみ (引き算)', ops: ['−'], style: 'bg-teal-600 text-white', multiplier: 2.0 },
+            { type: 'COMBO_ADD_MUL', label: '＋ と × (複合)', ops: ['＋', '×'], style: 'bg-amber-500 text-slate-900 font-bold', multiplier: 2.5 },
+            { type: 'COMBO_ADD_SUB', label: '＋ と − (複合)', ops: ['＋', '−'], style: 'bg-indigo-500 text-white font-bold', multiplier: 2.5 },
+            { type: 'COMBO_MUL_SUB', label: '× と − (複合)', ops: ['×', '−'], style: 'bg-orange-600 text-white font-bold', multiplier: 3.0 },
+            { type: 'COMBO_DIV_ADD', label: '÷ と ＋ (複合)', ops: ['÷', '＋'], style: 'bg-cyan-600 text-white font-bold', multiplier: 3.5 },
+            { type: 'COMBO_SUB_DIV', label: '− と ÷ (複合)', ops: ['−', '÷'], style: 'bg-pink-600 text-white font-bold', multiplier: 3.5 },
+            { type: 'COMBO_MUL_DIV', label: '× と ÷ (激ムズ!)', ops: ['×', '÷'], style: 'bg-red-600 text-white font-black', multiplier: 4.0 }
+        ];
+
+        const FEVER_QUESTION = { 
+            type: 'FEVER', 
+            label: '🔥 FEVER TIME 🔥', 
+            ops: ['＋', '−', '×', '÷'], 
+            style: 'bg-rose-500 text-white font-black animate-bounce', 
+            multiplier: 5.0 
+        };
+
+        let board = [];
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let currentMode = 'TRACE';
+
+        let currentQuestion = ALL_QUESTION_TYPES[0];
+        let feverMeter = 0;
+        let feverTimer = null;
+        let isFever = false;
+
+        let selectedIndices = [];
+        let isTracing = false;
+        let validFormulaMatch = null;
+
+        let selectedSwapIndex = null;
+        let isAnimating = false;
+
+        // Elements
+        const mainBodyEl = document.getElementById('main-body');
+        const screenTitleEl = document.getElementById('screen-title');
+        const screenGameEl = document.getElementById('screen-game');
+        const screenRankingEl = document.getElementById('screen-ranking');
+
+        const boardContainerEl = document.getElementById('board-container');
+        const boardEl = document.getElementById('board');
+        const lineCanvas = document.getElementById('line-canvas');
+        const ctx = lineCanvas.getContext('2d');
+        const requiredOpBadgeEl = document.getElementById('required-op-badge');
+        const formulaDisplayEl = document.getElementById('formula-display');
+        const resultDisplayEl = document.getElementById('result-display');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const timePopEl = document.getElementById('time-pop');
+        const modeTraceBtn = document.getElementById('mode-trace-btn');
+        const modeSwapBtn = document.getElementById('mode-swap-btn');
+
+        // Navigation
+        function showScreen(screen) {
+            screenTitleEl.classList.add('hidden');
+            screenGameEl.classList.add('hidden');
+            screenGameEl.classList.remove('flex');
+            screenRankingEl.classList.add('hidden');
+            screenRankingEl.classList.remove('flex');
+
+            if (screen === 'title') {
+                screenTitleEl.classList.remove('hidden');
+            } else if (screen === 'game') {
+                screenGameEl.classList.remove('hidden');
+                screenGameEl.classList.add('flex');
+            } else if (screen === 'ranking') {
+                screenRankingEl.classList.remove('hidden');
+                screenRankingEl.classList.add('flex');
+                renderRankingList();
+            }
+        }
+
+        // ゲーム初期化（スタート時）
+        function startNewGame() {
+            score = 0;
+            scoreEl.innerText = score;
+            feverMeter = 0;
+            isFever = false;
+            initBoardOnly();
+            startTimer();
+        }
+
+        // 盤面と状態のみをリセット（スコアは維持）
+        function initBoardOnly() {
+            board = [];
+            for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+                board.push(getRandomNumber());
+            }
+            pickRandomQuestion();
+            updateFeverMeterUI();
+            renderBoard();
+        }
+
+        function getRandomNumber() {
+            return NUMBERS[Math.floor(Math.random() * NUMBERS.length)];
+        }
+
+        function pickRandomQuestion() {
+            if (isFever) return;
+            const randomIndex = Math.floor(Math.random() * ALL_QUESTION_TYPES.length);
+            currentQuestion = ALL_QUESTION_TYPES[randomIndex];
+            applyQuestionUI();
+        }
+
+        function applyQuestionUI() {
+            const q = isFever ? FEVER_QUESTION : currentQuestion;
+            requiredOpBadgeEl.className = `px-2.5 py-0.5 rounded-lg text-sm font-black ${q.style} badge-pop`;
+            requiredOpBadgeEl.innerText = q.label;
+
+            if (isFever) {
+                mainBodyEl.classList.add('fever-bg');
+            } else {
+                mainBodyEl.classList.remove('fever-bg');
+            }
+        }
+
+        function addFeverMeter() {
+            if (isFever) return;
+            feverMeter++;
+            updateFeverMeterUI();
+            if (feverMeter >= 3) {
+                triggerFeverMode();
+            }
+        }
+
+        function updateFeverMeterUI() {
+            for (let i = 1; i <= 3; i++) {
+                const slot = document.getElementById(`meter-${i}`);
+                if (i <= feverMeter) {
+                    slot.classList.add('fever-meter-active');
+                } else {
+                    slot.classList.remove('fever-meter-active');
+                }
+            }
+        }
+
+        function triggerFeverMode() {
+            isFever = true;
+            applyQuestionUI();
+
+            clearTimeout(feverTimer);
+            feverTimer = setTimeout(() => {
+                isFever = false;
+                feverMeter = 0;
+                updateFeverMeterUI();
+                pickRandomQuestion();
+            }, 10000);
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            board.forEach((num, index) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center text-2xl font-black text-white shadow-md border-2 border-slate-600 cursor-pointer select-none';
+                tile.dataset.index = index;
+                tile.innerText = num;
+
+                tile.addEventListener('pointerdown', (e) => handleTileClick(index, e));
+                tile.addEventListener('pointerenter', () => handleTileEnter(index));
+
+                boardEl.appendChild(tile);
+            });
+            resizeCanvas();
+            updateUI();
+        }
+
+        function resizeCanvas() {
+            lineCanvas.width = boardEl.clientWidth;
+            lineCanvas.height = boardEl.clientHeight;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            cancelSelection();
+
+            if (mode === 'TRACE') {
+                modeTraceBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md';
+                modeSwapBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600';
+            } else {
+                modeSwapBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-amber-500 text-slate-900 font-bold shadow-md';
+                modeTraceBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600';
+            }
+        }
+
+        function handleTileClick(index, e) {
+            if (isAnimating) return;
+
+            if (currentMode === 'TRACE') {
+                isTracing = true;
+                selectedIndices = [index];
+                updateSelectionUI();
+                window.addEventListener('pointerup', handlePointerUp);
+            } else if (currentMode === 'SWAP') {
+                if (selectedSwapIndex === null) {
+                    selectedSwapIndex = index;
+                    updateUI();
+                } else if (selectedSwapIndex === index) {
+                    selectedSwapIndex = null;
+                    updateUI();
+                } else if (isAdjacentOrthogonal(selectedSwapIndex, index)) {
+                    animateAndSwapTiles(selectedSwapIndex, index);
+                    selectedSwapIndex = null;
+                } else {
+                    selectedSwapIndex = index;
+                    updateUI();
+                }
+            }
+        }
+
+        function handleTileEnter(index) {
+            if (currentMode === 'TRACE' && isTracing) {
+                const lastIndex = selectedIndices[selectedIndices.length - 1];
+                if (isAdjacent(lastIndex, index)) {
+                    if (!selectedIndices.includes(index)) {
+                        selectedIndices.push(index);
+                        updateSelectionUI();
+                    } else if (selectedIndices.length > 1 && selectedIndices[selectedIndices.length - 2] === index) {
+                        selectedIndices.pop();
+                        updateSelectionUI();
+                    }
+                }
+            }
+        }
+
+        // 指を離した瞬間の処理（画面シェイク演出の適用）
+        function handlePointerUp() {
+            if (currentMode === 'TRACE' && isTracing) {
+                isTracing = false;
+                window.removeEventListener('pointerup', handlePointerUp);
+
+                if (validFormulaMatch) {
+                    popTiles(selectedIndices);
+                } else if (selectedIndices.length >= 2) {
+                    // 2つ以上のブロックをなぞって失敗した場合のペナルティ＆画面シェイク
+                    timeLeft = Math.max(0, timeLeft - 3);
+                    timerEl.innerText = timeLeft;
+                    showTimePop('-3s', true);
+                    triggerBoardShake(); // 画面を揺らす
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        showGameOver();
+                    }
+                }
+                cancelSelection();
+            }
+        }
+
+        // 誤答時の画面振動（シェイク）演出
+        function triggerBoardShake() {
+            boardContainerEl.classList.remove('shake-screen');
+            void boardContainerEl.offsetWidth; // リフロー発生
+            boardContainerEl.classList.add('shake-screen');
+            setTimeout(() => {
+                boardContainerEl.classList.remove('shake-screen');
+            }, 350);
+        }
+
+        function findAutoFormula(indices) {
+            if (indices.length === 0) return null;
+            const nums = indices.map(i => board[i]);
+
+            if (nums.length === 1 && nums[0] === TARGET_NUMBER) {
+                return { formulaText: '24', val: 24, isSingle24: true };
+            }
+            if (nums.length === 1) return null;
+
+            const q = isFever ? FEVER_QUESTION : currentQuestion;
+            const allowedOps = q.ops;
+
+            function solve(seq, index, currentVal, exprText) {
+                if (index === seq.length) {
+                    if (Math.abs(currentVal - TARGET_NUMBER) < 0.00001) {
+                        return { formulaText: exprText, val: TARGET_NUMBER, isSingle24: false };
+                    }
+                    return null;
+                }
+
+                const nextNum = seq[index];
+                for (let op of allowedOps) {
+                    let nextVal = null;
+                    if (op === '＋') nextVal = currentVal + nextNum;
+                    else if (op === '−') nextVal = currentVal - nextNum;
+                    else if (op === '×') nextVal = currentVal * nextNum;
+                    else if (op === '÷') {
+                        if (nextNum !== 0) nextVal = currentVal / nextNum;
+                    }
+
+                    if (nextVal !== null) {
+                        const res = solve(seq, index + 1, nextVal, `${exprText} ${op} ${nextNum}`);
+                        if (res) return res;
+                    }
+                }
+                return null;
+            }
+
+            return solve(nums, 1, nums[0], `${nums[0]}`);
+        }
+
+        function isAdjacentOrthogonal(i1, i2) {
+            const r1 = Math.floor(i1 / BOARD_SIZE), c1 = i1 % BOARD_SIZE;
+            const r2 = Math.floor(i2 / BOARD_SIZE), c2 = i2 % BOARD_SIZE;
+            return (Math.abs(r1 - r2) === 1 && c1 === c2) || (Math.abs(c1 - c2) === 1 && r1 === r2);
+        }
+
+        function isAdjacent(i1, i2) {
+            const r1 = Math.floor(i1 / BOARD_SIZE), c1 = i1 % BOARD_SIZE;
+            const r2 = Math.floor(i2 / BOARD_SIZE), c2 = i2 % BOARD_SIZE;
+            return Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1;
+        }
+
+        function animateAndSwapTiles(i1, i2) {
+            isAnimating = true;
+            const tiles = boardEl.children;
+            const tile1 = tiles[i1];
+            const tile2 = tiles[i2];
+
+            const rect1 = tile1.getBoundingClientRect();
+            const rect2 = tile2.getBoundingClientRect();
+
+            const dx1 = rect2.left - rect1.left;
+            const dy1 = rect2.top - rect1.top;
+            const dx2 = rect1.left - rect2.left;
+            const dy2 = rect1.top - rect2.top;
+
+            tile1.classList.add('swap-animating');
+            tile2.classList.add('swap-animating');
+
+            tile1.style.transform = `translate(${dx1}px, ${dy1}px)`;
+            tile2.style.transform = `translate(${dx2}px, ${dy2}px)`;
+
+            setTimeout(() => {
+                const temp = board[i1];
+                board[i1] = board[i2];
+                board[i2] = temp;
+
+                renderBoard();
+                isAnimating = false;
+            }, 250);
+        }
+
+        function updateUI() {
+            const tiles = boardEl.children;
+            Array.from(tiles).forEach((t, idx) => {
+                t.classList.remove('tile-selected-swap', 'tile-swap-target');
+                if (currentMode === 'SWAP' && selectedSwapIndex !== null) {
+                    if (idx === selectedSwapIndex) {
+                        t.classList.add('tile-selected-swap');
+                    } else if (isAdjacentOrthogonal(selectedSwapIndex, idx)) {
+                        t.classList.add('tile-swap-target');
+                    }
+                }
+            });
+        }
+
+        function updateSelectionUI() {
+            const tiles = boardEl.children;
+            Array.from(tiles).forEach(t => t.classList.remove('tile-selected-trace', 'tile-success', 'bg-blue-600'));
+
+            validFormulaMatch = findAutoFormula(selectedIndices);
+
+            if (validFormulaMatch) {
+                formulaDisplayEl.innerText = validFormulaMatch.formulaText;
+                resultDisplayEl.innerText = '= 24 (OK!)';
+                resultDisplayEl.className = 'text-2xl font-black min-h-[32px] text-emerald-400 scale-110 transition';
+            } else {
+                const rawNums = selectedIndices.map(i => board[i]).join(' → ');
+                formulaDisplayEl.innerText = rawNums || '4個以上繋ぐとフィーバーゲージUP！';
+                resultDisplayEl.innerText = '-';
+                resultDisplayEl.className = 'text-2xl font-black text-cyan-400 min-h-[32px]';
+            }
+
+            selectedIndices.forEach(idx => {
+                if (tiles[idx]) {
+                    tiles[idx].classList.add('tile-selected-trace', validFormulaMatch ? 'tile-success' : 'bg-blue-600');
+                }
+            });
+
+            drawLines(!!validFormulaMatch);
+        }
+
+        function drawLines(isValid) {
+            ctx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
+            if (selectedIndices.length < 2) return;
+
+            const tiles = boardEl.children;
+            ctx.beginPath();
+            ctx.strokeStyle = isValid ? '#10b981' : '#60a5fa';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            selectedIndices.forEach((idx, i) => {
+                const rect = tiles[idx].getBoundingClientRect();
+                const boardRect = boardEl.getBoundingClientRect();
+                const x = rect.left - boardRect.left + rect.width / 2;
+                const y = rect.top - boardRect.top + rect.height / 2;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        function cancelSelection() {
+            selectedIndices = [];
+            selectedSwapIndex = null;
+            validFormulaMatch = null;
+            formulaDisplayEl.innerText = '4個以上繋ぐとフィーバーゲージUP！';
+            resultDisplayEl.innerText = '-';
+            resultDisplayEl.className = 'text-2xl font-black text-cyan-400 min-h-[32px]';
+            ctx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
+            updateUI();
+        }
+
+        function popTiles(indices) {
+            const q = isFever ? FEVER_QUESTION : currentQuestion;
+            let gainedScore = 0;
+            let addSeconds = 0;
+
+            if (validFormulaMatch && validFormulaMatch.isSingle24) {
+                gainedScore = 1;
+                addSeconds = 0;
+            } else {
+                const lengthBonus = Math.pow(indices.length, 2) * 100;
+                gainedScore = Math.floor(lengthBonus * q.multiplier);
+                addSeconds = Math.min(2 + (indices.length - 2), 6);
+
+                if (indices.length >= 4) {
+                    addFeverMeter();
+                }
+            }
+
+            score += gainedScore;
+            scoreEl.innerText = score;
+
+            if (addSeconds > 0) {
+                timeLeft = Math.min(timeLeft + addSeconds, 99);
+                timerEl.innerText = timeLeft;
+                showTimePop(`+${addSeconds}s`, false);
+            }
+
+            indices.forEach(idx => {
+                board[idx] = null;
+            });
+
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let emptyIndices = [];
+                for (let r = BOARD_SIZE - 1; r >= 0; r--) {
+                    let idx = r * BOARD_SIZE + c;
+                    if (board[idx] === null) {
+                        emptyIndices.push(idx);
+                    } else if (emptyIndices.length > 0) {
+                        let targetIdx = emptyIndices.shift();
+                        board[targetIdx] = board[idx];
+                        board[idx] = null;
+                        emptyIndices.push(idx);
+                    }
+                }
+                emptyIndices.forEach(idx => {
+                    board[idx] = getRandomNumber();
+                });
+            }
+
+            pickRandomQuestion();
+            renderBoard();
+        }
+
+        function showTimePop(text, isNegative = false) {
+            timePopEl.innerText = text;
+            timePopEl.className = `absolute -top-3 right-0 font-black text-lg pointer-events-none ${isNegative ? 'text-rose-500 time-minus-pop' : 'text-emerald-400 time-plus-pop'}`;
+            timePopEl.classList.remove('hidden');
+            
+            setTimeout(() => {
+                timePopEl.classList.add('hidden');
+            }, 800);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 60;
+            timerEl.innerText = timeLeft;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    showGameOver();
+                }
+            }, 1000);
+        }
+
+        function showGameOver() {
+            saveScore(score);
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        // LocalStorage Ranking System
+        function saveScore(newScore) {
+            let scores = JSON.parse(localStorage.getItem('make24_scores') || '[]');
+            const dateStr = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            scores.push({ score: newScore, date: dateStr });
+            scores.sort((a, b) => b.score - a.score);
+            scores = scores.slice(0, 5); // Top 5
+            localStorage.setItem('make24_scores', JSON.stringify(scores));
+        }
+
+        function renderRankingList() {
+            const listEl = document.getElementById('ranking-list');
+            const scores = JSON.parse(localStorage.getItem('make24_scores') || '[]');
+
+            if (scores.length === 0) {
+                listEl.innerHTML = '<div class="text-slate-500 py-4 text-sm">プレイ記録がありません</div>';
+                return;
+            }
+
+            listEl.innerHTML = scores.map((item, index) => {
+                const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-500';
+                return `
+                    <div class="flex justify-between items-center bg-slate-900/80 p-3 rounded-xl border border-slate-700/80">
+                        <div class="flex items-center gap-3">
+                            <span class="font-black text-lg ${rankColor}">#${index + 1}</span>
+                            <span class="text-xs text-slate-400">${item.date}</span>
+                        </div>
+                        <div class="font-black text-2xl text-emerald-400">${item.score} <span class="text-xs font-normal text-slate-400">pt</span></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Event Listeners
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+            showScreen('game');
+            startNewGame();
+        });
+
+        document.getElementById('show-ranking-btn').addEventListener('click', () => {
+            showScreen('ranking');
+        });
+
+        document.getElementById('ranking-back-btn').addEventListener('click', () => {
+            showScreen('title');
+        });
+
+        document.getElementById('quit-to-title-btn').addEventListener('click', () => {
+            clearInterval(timerInterval);
+            showScreen('title');
+        });
+
+        modeTraceBtn.addEventListener('click', () => setMode('TRACE'));
+        modeSwapBtn.addEventListener('click', () => setMode('SWAP'));
+
+        document.getElementById('shuffle-btn').addEventListener('click', () => {
+            if (timeLeft > 5) {
+                timeLeft -= 5;
+                timerEl.innerText = timeLeft;
+                initBoardOnly();
+            }
+        });
+
+        document.getElementById('modal-restart-btn').addEventListener('click', () => {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            startNewGame();
+        });
+
+        document.getElementById('modal-ranking-btn').addEventListener('click', () => {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            showScreen('ranking');
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
