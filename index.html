@@ -8,6 +8,7 @@
     <style>
         html, body {
             height: 100%;
+            width: 100%;
             overflow: hidden;
             touch-action: none;
             user-select: none;
@@ -105,23 +106,25 @@
             text-shadow: 0 0 20px rgba(52, 211, 153, 0.6);
         }
 
-        /* 数式演出用クラス */
+        /* 数式演出用クラス（画面拡大を防ぐためスケール量を調整しGPUアクセラレーションを適用） */
         .seq-token {
             display: inline-block;
             animation: tokenPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
             margin: 0 2px;
+            will-change: transform, opacity;
         }
         @keyframes tokenPop {
             0% { transform: scale(0.2); opacity: 0; filter: blur(4px); }
             100% { transform: scale(1); opacity: 1; filter: blur(0); }
         }
         .flash-finish {
-            animation: flashPulse 0.4s ease-out forwards;
+            animation: flashPulse 0.35s ease-out forwards;
+            will-change: transform, filter, opacity;
         }
         @keyframes flashPulse {
-            0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 10px #10b981); }
-            50% { transform: scale(1.25); filter: brightness(2) drop-shadow(0 0 35px #5eead4); opacity: 1; }
-            100% { transform: scale(1.4); filter: brightness(3); opacity: 0; }
+            0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 10px #10b981); opacity: 1; }
+            50% { transform: scale(1.1); filter: brightness(1.8) drop-shadow(0 0 20px #5eead4); opacity: 1; }
+            100% { transform: scale(1.15); filter: brightness(2.5); opacity: 0; }
         }
     </style>
 </head>
@@ -214,14 +217,14 @@
             </button>
         </div>
 
-        <!-- ゲームボード (数式ポップアップ演出レイヤーを内包) -->
-        <div id="board-container" class="relative w-full bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur my-auto">
+        <!-- ゲームボード (数式ポップアップ演出レイヤーを内包・overflow-hiddenでレイアウトの枠外拡大をシャットアウト) -->
+        <div id="board-container" class="relative w-full bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur my-auto overflow-hidden">
             <div id="board" class="board-grid"></div>
             <canvas id="line-canvas" class="absolute inset-0 pointer-events-none z-20"></canvas>
             
             <!-- 正解数式ポッピング演出用オーバーレイ -->
-            <div id="formula-anim-overlay" class="absolute inset-0 z-30 pointer-events-none flex items-center justify-center hidden bg-slate-950/40 backdrop-blur-[2px] rounded-2xl">
-                <div id="anim-formula-box" class="flex items-center justify-center flex-wrap gap-1 px-4 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-2xl font-black text-emerald-400">
+            <div id="formula-anim-overlay" class="absolute inset-0 z-30 pointer-events-none flex items-center justify-center hidden bg-slate-950/40 backdrop-blur-[2px] rounded-2xl overflow-hidden p-2">
+                <div id="anim-formula-box" class="flex items-center justify-center flex-wrap gap-1 px-3 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-xl font-black text-emerald-400 max-w-full">
                     <!-- JSで動的にトークン要素を順次追加 -->
                 </div>
             </div>
@@ -529,7 +532,6 @@
                     const indicesToPop = [...selectedIndices];
                     cancelSelection();
                     
-                    // 数式順次ポップアップアニメーションを実行後、パネル消去処理へ
                     playFormulaSequenceAnimation(formulaText, () => {
                         popTiles(indicesToPop);
                     });
@@ -550,11 +552,10 @@
             }
         }
 
-        // 数式がテンポよく1文字（要素）ずつ表示されフラッシュして消えるアニメーション演出
         function playFormulaSequenceAnimation(formulaText, onComplete) {
             isAnimating = true;
             animFormulaBox.innerHTML = '';
-            animFormulaBox.className = 'flex items-center justify-center flex-wrap gap-1 px-4 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-2xl font-black text-emerald-400';
+            animFormulaBox.className = 'flex items-center justify-center flex-wrap gap-1 px-3 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-xl font-black text-emerald-400 max-w-full';
             formulaAnimOverlay.classList.remove('hidden');
 
             const tokens = formulaText.split(' ');
@@ -568,9 +569,9 @@
                     
                     const token = tokens[index];
                     if (['＋', '−', '×', '÷', '='].includes(token)) {
-                        span.classList.add('text-amber-400', 'mx-1');
+                        span.classList.add('text-amber-400', 'mx-0.5');
                     } else if (token === '24') {
-                        span.classList.add('text-yellow-300', 'text-3xl', 'underline');
+                        span.classList.add('text-yellow-300', 'text-2xl', 'underline');
                     }
                     span.innerText = token;
                     animFormulaBox.appendChild(span);
@@ -582,12 +583,13 @@
                         animFormulaBox.classList.add('flash-finish');
                         setTimeout(() => {
                             formulaAnimOverlay.classList.add('hidden');
+                            animFormulaBox.classList.remove('flash-finish');
                             isAnimating = false;
                             if (onComplete) onComplete();
-                        }, 400);
-                    }, 200);
+                        }, 350);
+                    }, 180);
                 }
-            }, 180);
+            }, 160);
         }
 
         function triggerBoardShake() {
