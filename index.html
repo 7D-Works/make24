@@ -104,6 +104,25 @@
         .title-glow {
             text-shadow: 0 0 20px rgba(52, 211, 153, 0.6);
         }
+
+        /* 数式演出用クラス */
+        .seq-token {
+            display: inline-block;
+            animation: tokenPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            margin: 0 2px;
+        }
+        @keyframes tokenPop {
+            0% { transform: scale(0.2); opacity: 0; filter: blur(4px); }
+            100% { transform: scale(1); opacity: 1; filter: blur(0); }
+        }
+        .flash-finish {
+            animation: flashPulse 0.4s ease-out forwards;
+        }
+        @keyframes flashPulse {
+            0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 10px #10b981); }
+            50% { transform: scale(1.25); filter: brightness(2) drop-shadow(0 0 35px #5eead4); opacity: 1; }
+            100% { transform: scale(1.4); filter: brightness(3); opacity: 0; }
+        }
     </style>
 </head>
 <body id="main-body" class="bg-slate-900 text-white h-dvh w-screen flex flex-col items-center justify-between p-3 font-sans select-none transition-colors duration-500 overflow-hidden">
@@ -195,10 +214,17 @@
             </button>
         </div>
 
-        <!-- ゲームボード -->
+        <!-- ゲームボード (数式ポップアップ演出レイヤーを内包) -->
         <div id="board-container" class="relative w-full bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur my-auto">
             <div id="board" class="board-grid"></div>
             <canvas id="line-canvas" class="absolute inset-0 pointer-events-none z-20"></canvas>
+            
+            <!-- 正解数式ポッピング演出用オーバーレイ -->
+            <div id="formula-anim-overlay" class="absolute inset-0 z-30 pointer-events-none flex items-center justify-center hidden bg-slate-950/40 backdrop-blur-[2px] rounded-2xl">
+                <div id="anim-formula-box" class="flex items-center justify-center flex-wrap gap-1 px-4 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-2xl font-black text-emerald-400">
+                    <!-- JSで動的にトークン要素を順次追加 -->
+                </div>
+            </div>
         </div>
 
         <!-- 下部ボタン -->
@@ -306,6 +332,9 @@
         const timePopEl = document.getElementById('time-pop');
         const modeTraceBtn = document.getElementById('mode-trace-btn');
         const modeSwapBtn = document.getElementById('mode-swap-btn');
+
+        const formulaAnimOverlay = document.getElementById('formula-anim-overlay');
+        const animFormulaBox = document.getElementById('anim-formula-box');
 
         // Navigation
         function showScreen(screen) {
@@ -463,7 +492,6 @@
             }
         }
 
-        // タッチ操作（指でなぞる）の判定修正：point位置から対象要素を取得してリアルタイム描画
         function handlePointerMove(e) {
             if (currentMode === 'TRACE' && isTracing) {
                 const targetElement = document.elementFromPoint(e.clientX, e.clientY);
@@ -497,7 +525,14 @@
                 window.removeEventListener('pointerup', handlePointerUp);
 
                 if (validFormulaMatch) {
-                    popTiles(selectedIndices);
+                    const formulaText = validFormulaMatch.formulaText;
+                    const indicesToPop = [...selectedIndices];
+                    cancelSelection();
+                    
+                    // 数式順次ポップアップアニメーションを実行後、パネル消去処理へ
+                    playFormulaSequenceAnimation(formulaText, () => {
+                        popTiles(indicesToPop);
+                    });
                 } else if (selectedIndices.length >= 2) {
                     timeLeft = Math.max(0, timeLeft - 3);
                     timerEl.innerText = timeLeft;
@@ -508,9 +543,51 @@
                         clearInterval(timerInterval);
                         showGameOver();
                     }
+                    cancelSelection();
+                } else {
+                    cancelSelection();
                 }
-                cancelSelection();
             }
+        }
+
+        // 数式がテンポよく1文字（要素）ずつ表示されフラッシュして消えるアニメーション演出
+        function playFormulaSequenceAnimation(formulaText, onComplete) {
+            isAnimating = true;
+            animFormulaBox.innerHTML = '';
+            animFormulaBox.className = 'flex items-center justify-center flex-wrap gap-1 px-4 py-2 bg-slate-900/95 border-2 border-emerald-400 rounded-2xl shadow-2xl text-2xl font-black text-emerald-400';
+            formulaAnimOverlay.classList.remove('hidden');
+
+            const tokens = formulaText.split(' ');
+            tokens.push('=', '24');
+
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index < tokens.length) {
+                    const span = document.createElement('span');
+                    span.className = 'seq-token';
+                    
+                    const token = tokens[index];
+                    if (['＋', '−', '×', '÷', '='].includes(token)) {
+                        span.classList.add('text-amber-400', 'mx-1');
+                    } else if (token === '24') {
+                        span.classList.add('text-yellow-300', 'text-3xl', 'underline');
+                    }
+                    span.innerText = token;
+                    animFormulaBox.appendChild(span);
+                    index++;
+                } else {
+                    clearInterval(interval);
+                    
+                    setTimeout(() => {
+                        animFormulaBox.classList.add('flash-finish');
+                        setTimeout(() => {
+                            formulaAnimOverlay.classList.add('hidden');
+                            isAnimating = false;
+                            if (onComplete) onComplete();
+                        }, 400);
+                    }, 200);
+                }
+            }, 180);
         }
 
         function triggerBoardShake() {
@@ -684,17 +761,12 @@
             let gainedScore = 0;
             let addSeconds = 0;
 
-            if (validFormulaMatch && validFormulaMatch.isSingle24) {
-                gainedScore = 1;
-                addSeconds = 0;
-            } else {
-                const lengthBonus = Math.pow(indices.length, 2) * 100;
-                gainedScore = Math.floor(lengthBonus * q.multiplier);
-                addSeconds = Math.min(2 + (indices.length - 2), 6);
+            const lengthBonus = Math.pow(indices.length, 2) * 100;
+            gainedScore = Math.floor(lengthBonus * q.multiplier);
+            addSeconds = Math.min(2 + (indices.length - 2), 6);
 
-                if (indices.length >= 4) {
-                    addFeverMeter();
-                }
+            if (indices.length >= 4) {
+                addFeverMeter();
             }
 
             score += gainedScore;
