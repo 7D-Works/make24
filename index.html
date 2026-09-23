@@ -2,19 +2,21 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Make 24: Auto Chain</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            touch-action: manipulation;
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
             user-select: none;
             -webkit-user-select: none;
         }
         .board-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
+            gap: 8px;
             position: relative;
         }
         .tile {
@@ -82,8 +84,6 @@
             0% { transform: translateY(0) scale(1); opacity: 1; }
             100% { transform: translateY(20px) scale(1.3); opacity: 0; }
         }
-
-        /* 画面シェイク（誤答時の画面揺れエフェクト） */
         .shake-screen {
             animation: screenShake 0.35s cubic-bezier(.36,.07,.19,.97) both;
         }
@@ -93,7 +93,6 @@
             30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
             40%, 60% { transform: translate3d(6px, 0, 0); }
         }
-
         .fever-meter-slot {
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
@@ -107,20 +106,20 @@
         }
     </style>
 </head>
-<body id="main-body" class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none transition-colors duration-500">
+<body id="main-body" class="bg-slate-900 text-white h-dvh w-screen flex flex-col items-center justify-between p-3 font-sans select-none transition-colors duration-500 overflow-hidden">
 
     <!-- 1. タイトル画面 (TITLE SCREEN) -->
-    <div id="screen-title" class="w-full max-w-md bg-slate-800/90 rounded-3xl p-6 border border-slate-700 shadow-2xl backdrop-blur flex flex-col items-center text-center">
-        <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold mb-4 border border-emerald-500/30">
+    <div id="screen-title" class="w-full max-w-md bg-slate-800/90 rounded-3xl p-5 border border-slate-700 shadow-2xl backdrop-blur flex flex-col items-center text-center my-auto">
+        <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold mb-3 border border-emerald-500/30">
             数字パズル
         </div>
-        <h1 class="text-5xl font-black tracking-tight text-white mb-1 title-glow">
+        <h1 class="text-4xl font-black tracking-tight text-white mb-1 title-glow">
             MAKE <span class="text-emerald-400">24</span>
         </h1>
-        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6">Auto Chain Puzzle</p>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-4">Auto Chain Puzzle</p>
 
         <!-- ルール説明カード -->
-        <div class="w-full bg-slate-900/80 rounded-2xl p-4 text-left border border-slate-700/80 mb-6 space-y-2 text-xs text-slate-300">
+        <div class="w-full bg-slate-900/80 rounded-2xl p-3 text-left border border-slate-700/80 mb-5 space-y-1.5 text-xs text-slate-300">
             <div class="flex items-start gap-2">
                 <span class="text-emerald-400 font-bold">①</span>
                 <span>数字を指でなぞって計算して「24」を作ろう。</span>
@@ -135,95 +134,95 @@
             </div>
         </div>
 
-        <button id="start-game-btn" class="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-900 font-black py-4 rounded-2xl text-xl shadow-lg transition mb-3">
+        <button id="start-game-btn" class="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-900 font-black py-3.5 rounded-2xl text-lg shadow-lg transition mb-2.5">
             PLAY START
         </button>
         
-        <button id="show-ranking-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-3 rounded-2xl text-sm transition">
+        <button id="show-ranking-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-2.5 rounded-2xl text-xs transition">
             🏆 ハイスコアランキング
         </button>
     </div>
 
     <!-- 2. メインゲーム画面 (GAME SCREEN) -->
-    <div id="screen-game" class="w-full max-w-md hidden flex-col items-center">
+    <div id="screen-game" class="w-full max-w-md hidden flex-col items-center justify-between h-full py-1">
         <!-- ヘッダー情報 -->
-        <div class="w-full bg-slate-800/90 rounded-2xl p-4 mb-3 shadow-lg border border-slate-700 flex justify-between items-center backdrop-blur">
+        <div class="w-full bg-slate-800/90 rounded-2xl p-3 mb-1.5 shadow-lg border border-slate-700 flex justify-between items-center backdrop-blur shrink-0">
             <div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">SCORE</div>
-                <div id="score" class="text-3xl font-black text-yellow-400">0</div>
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">SCORE</div>
+                <div id="score" class="text-2xl font-black text-yellow-400">0</div>
             </div>
-            <div class="text-center bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
-                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">TARGET</div>
-                <div class="text-3xl font-black text-emerald-400">24</div>
+            <div class="text-center bg-slate-900/80 px-3 py-1 rounded-xl border border-slate-700">
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">TARGET</div>
+                <div class="text-2xl font-black text-emerald-400">24</div>
             </div>
             <div class="text-right relative">
-                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">TIME</div>
-                <div id="timer" class="text-3xl font-black text-rose-400">60</div>
-                <div id="time-pop" class="absolute -top-3 right-0 font-black text-lg hidden pointer-events-none">+2s</div>
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">TIME</div>
+                <div id="timer" class="text-2xl font-black text-rose-400">60</div>
+                <div id="time-pop" class="absolute -top-3 right-0 font-black text-sm hidden pointer-events-none">+2s</div>
             </div>
         </div>
 
         <!-- お題 ＆ フィーバーメーター ＆ 判定表示エリア -->
-        <div class="w-full bg-slate-800/90 rounded-xl p-3 mb-3 border border-slate-700 text-center shadow-md flex flex-col gap-2 backdrop-blur">
-            <div class="flex items-center justify-between px-2">
+        <div class="w-full bg-slate-800/90 rounded-xl p-2.5 mb-1.5 border border-slate-700 text-center shadow-md flex flex-col gap-1 backdrop-blur shrink-0">
+            <div class="flex items-center justify-between px-1">
                 <div class="flex items-center gap-1.5">
-                    <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">お題:</span>
-                    <div id="required-op-badge" class="px-2.5 py-0.5 rounded-lg text-sm font-black bg-blue-600 text-white badge-pop">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">お題:</span>
+                    <div id="required-op-badge" class="px-2 py-0.5 rounded-lg text-xs font-black bg-blue-600 text-white badge-pop">
                         ＋ のみ
                     </div>
                 </div>
                 
                 <!-- フィーバーメーター -->
                 <div class="flex items-center gap-1">
-                    <span class="text-[10px] text-amber-400 font-black tracking-tighter mr-1">4+CHAIN:</span>
-                    <div id="meter-1" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
-                    <div id="meter-2" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
-                    <div id="meter-3" class="w-3.5 h-3.5 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                    <span class="text-[9px] text-amber-400 font-black tracking-tighter mr-0.5">4+CHAIN:</span>
+                    <div id="meter-1" class="w-3 h-3 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                    <div id="meter-2" class="w-3 h-3 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
+                    <div id="meter-3" class="w-3 h-3 rounded-full border border-slate-600 bg-slate-900 fever-meter-slot"></div>
                 </div>
             </div>
 
-            <div id="formula-display" class="text-slate-400 text-sm font-semibold tracking-wider min-h-[20px]">4個以上繋ぐとフィーバーゲージUP！</div>
-            <div id="result-display" class="text-2xl font-black text-cyan-400 min-h-[32px]">-</div>
+            <div id="formula-display" class="text-slate-400 text-xs font-semibold tracking-wider min-h-[16px]">4個以上繋ぐとフィーバーゲージUP！</div>
+            <div id="result-display" class="text-xl font-black text-cyan-400 min-h-[28px]">-</div>
         </div>
 
         <!-- モード切り替えコントロール -->
-        <div class="w-full bg-slate-800/90 rounded-xl p-2 mb-3 border border-slate-700 flex gap-2 backdrop-blur">
-            <button id="mode-trace-btn" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md">
+        <div class="w-full bg-slate-800/90 rounded-xl p-1.5 mb-1.5 border border-slate-700 flex gap-2 backdrop-blur shrink-0">
+            <button id="mode-trace-btn" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-blue-600 text-white shadow-md">
                 <span>✏️ なぞって計算！</span>
             </button>
-            <button id="mode-swap-btn" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600">
+            <button id="mode-swap-btn" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-slate-700 text-slate-300 hover:bg-slate-600">
                 <span>🔀 パネル入れ替え！</span>
             </button>
         </div>
 
         <!-- ゲームボード -->
-        <div id="board-container" class="relative w-full bg-slate-800/80 p-3 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur">
+        <div id="board-container" class="relative w-full bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur my-auto">
             <div id="board" class="board-grid"></div>
             <canvas id="line-canvas" class="absolute inset-0 pointer-events-none z-20"></canvas>
         </div>
 
         <!-- 下部ボタン -->
-        <div class="w-full flex gap-3 mt-4">
-            <button id="shuffle-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+        <div class="w-full flex gap-2.5 mt-1.5 shrink-0">
+            <button id="shuffle-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 text-xs">
                 <span>🎲 シャッフル (-5秒)</span>
             </button>
-            <button id="quit-to-title-btn" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold px-5 py-3 rounded-xl shadow-lg transition">
+            <button id="quit-to-title-btn" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl shadow-lg transition text-xs">
                 🏠
             </button>
         </div>
     </div>
 
     <!-- 3. ハイスコアランキング画面 (RANKING SCREEN) -->
-    <div id="screen-ranking" class="w-full max-w-md hidden flex-col items-center">
-        <div class="w-full bg-slate-800/90 rounded-3xl p-6 border border-slate-700 shadow-2xl backdrop-blur text-center">
-            <h2 class="text-3xl font-black text-yellow-400 mb-1">HIGH SCORES</h2>
-            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-6">Top 5 Best Plays</p>
+    <div id="screen-ranking" class="w-full max-w-md hidden flex-col items-center my-auto">
+        <div class="w-full bg-slate-800/90 rounded-3xl p-5 border border-slate-700 shadow-2xl backdrop-blur text-center">
+            <h2 class="text-2xl font-black text-yellow-400 mb-1">HIGH SCORES</h2>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-4">Top 5 Best Plays</p>
 
-            <div id="ranking-list" class="w-full space-y-2 mb-6">
+            <div id="ranking-list" class="w-full space-y-2 mb-5">
                 <!-- JSで動的に追加 -->
             </div>
 
-            <button id="ranking-back-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-3 rounded-2xl transition">
+            <button id="ranking-back-btn" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-2.5 rounded-2xl text-xs transition">
                 タイトルに戻る
             </button>
         </div>
@@ -231,15 +230,15 @@
 
     <!-- ゲームオーバーモーダル -->
     <div id="game-over-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center max-w-sm w-full shadow-2xl">
-            <h2 class="text-3xl font-black text-yellow-400 mb-2">TIME UP!</h2>
-            <p class="text-slate-400 mb-2">Final Score</p>
-            <div id="final-score" class="text-5xl font-extrabold text-white mb-6">0</div>
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 text-center max-w-sm w-full shadow-2xl">
+            <h2 class="text-2xl font-black text-yellow-400 mb-1">TIME UP!</h2>
+            <p class="text-xs text-slate-400 mb-1">Final Score</p>
+            <div id="final-score" class="text-4xl font-extrabold text-white mb-5">0</div>
             <div class="flex gap-2">
-                <button id="modal-ranking-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition">
+                <button id="modal-ranking-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition">
                     順位確認
                 </button>
-                <button id="modal-restart-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-3 rounded-xl transition">
+                <button id="modal-restart-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-2.5 rounded-xl text-xs transition">
                     もう一度
                 </button>
             </div>
@@ -362,7 +361,7 @@
 
         function applyQuestionUI() {
             const q = isFever ? FEVER_QUESTION : currentQuestion;
-            requiredOpBadgeEl.className = `px-2.5 py-0.5 rounded-lg text-sm font-black ${q.style} badge-pop`;
+            requiredOpBadgeEl.className = `px-2 py-0.5 rounded-lg text-xs font-black ${q.style} badge-pop`;
             requiredOpBadgeEl.innerText = q.label;
 
             if (isFever) {
@@ -409,13 +408,11 @@
             boardEl.innerHTML = '';
             board.forEach((num, index) => {
                 const tile = document.createElement('div');
-                tile.className = 'tile bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center text-2xl font-black text-white shadow-md border-2 border-slate-600 cursor-pointer select-none';
+                tile.className = 'tile bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-md border-2 border-slate-600 cursor-pointer select-none';
                 tile.dataset.index = index;
                 tile.innerText = num;
 
                 tile.addEventListener('pointerdown', (e) => handleTileClick(index, e));
-                tile.addEventListener('pointerenter', () => handleTileEnter(index));
-
                 boardEl.appendChild(tile);
             });
             resizeCanvas();
@@ -432,11 +429,11 @@
             cancelSelection();
 
             if (mode === 'TRACE') {
-                modeTraceBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md';
-                modeSwapBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600';
+                modeTraceBtn.className = 'flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-blue-600 text-white shadow-md';
+                modeSwapBtn.className = 'flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-slate-700 text-slate-300 hover:bg-slate-600';
             } else {
-                modeSwapBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-amber-500 text-slate-900 font-bold shadow-md';
-                modeTraceBtn.className = 'flex-1 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-slate-700 text-slate-300 hover:bg-slate-600';
+                modeSwapBtn.className = 'flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-amber-500 text-slate-900 font-bold shadow-md';
+                modeTraceBtn.className = 'flex-1 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 bg-slate-700 text-slate-300 hover:bg-slate-600';
             }
         }
 
@@ -447,6 +444,7 @@
                 isTracing = true;
                 selectedIndices = [index];
                 updateSelectionUI();
+                window.addEventListener('pointermove', handlePointerMove);
                 window.addEventListener('pointerup', handlePointerUp);
             } else if (currentMode === 'SWAP') {
                 if (selectedSwapIndex === null) {
@@ -465,35 +463,46 @@
             }
         }
 
-        function handleTileEnter(index) {
+        // タッチ操作（指でなぞる）の判定修正：point位置から対象要素を取得してリアルタイム描画
+        function handlePointerMove(e) {
             if (currentMode === 'TRACE' && isTracing) {
-                const lastIndex = selectedIndices[selectedIndices.length - 1];
-                if (isAdjacent(lastIndex, index)) {
-                    if (!selectedIndices.includes(index)) {
-                        selectedIndices.push(index);
-                        updateSelectionUI();
-                    } else if (selectedIndices.length > 1 && selectedIndices[selectedIndices.length - 2] === index) {
-                        selectedIndices.pop();
-                        updateSelectionUI();
+                const targetElement = document.elementFromPoint(e.clientX, e.clientY);
+                if (targetElement && targetElement.classList.contains('tile')) {
+                    const index = parseInt(targetElement.dataset.index, 10);
+                    if (!isNaN(index)) {
+                        handleTileEnter(index);
                     }
                 }
             }
         }
 
-        // 指を離した瞬間の処理（画面シェイク演出の適用）
+        function handleTileEnter(index) {
+            const lastIndex = selectedIndices[selectedIndices.length - 1];
+            if (lastIndex !== index && isAdjacent(lastIndex, index)) {
+                if (!selectedIndices.includes(index)) {
+                    selectedIndices.push(index);
+                    updateSelectionUI();
+                } else if (selectedIndices.length > 1 && selectedIndices[selectedIndices.length - 2] === index) {
+                    selectedIndices.pop();
+                    updateSelectionUI();
+                }
+            }
+        }
+
+        // 指を離した瞬間の処理
         function handlePointerUp() {
             if (currentMode === 'TRACE' && isTracing) {
                 isTracing = false;
+                window.removeEventListener('pointermove', handlePointerMove);
                 window.removeEventListener('pointerup', handlePointerUp);
 
                 if (validFormulaMatch) {
                     popTiles(selectedIndices);
                 } else if (selectedIndices.length >= 2) {
-                    // 2つ以上のブロックをなぞって失敗した場合のペナルティ＆画面シェイク
                     timeLeft = Math.max(0, timeLeft - 3);
                     timerEl.innerText = timeLeft;
                     showTimePop('-3s', true);
-                    triggerBoardShake(); // 画面を揺らす
+                    triggerBoardShake();
                     
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
@@ -504,10 +513,9 @@
             }
         }
 
-        // 誤答時の画面振動（シェイク）演出
         function triggerBoardShake() {
             boardContainerEl.classList.remove('shake-screen');
-            void boardContainerEl.offsetWidth; // リフロー発生
+            void boardContainerEl.offsetWidth;
             boardContainerEl.classList.add('shake-screen');
             setTimeout(() => {
                 boardContainerEl.classList.remove('shake-screen');
@@ -620,12 +628,12 @@
             if (validFormulaMatch) {
                 formulaDisplayEl.innerText = validFormulaMatch.formulaText;
                 resultDisplayEl.innerText = '= 24 (OK!)';
-                resultDisplayEl.className = 'text-2xl font-black min-h-[32px] text-emerald-400 scale-110 transition';
+                resultDisplayEl.className = 'text-xl font-black min-h-[28px] text-emerald-400 scale-110 transition';
             } else {
                 const rawNums = selectedIndices.map(i => board[i]).join(' → ');
                 formulaDisplayEl.innerText = rawNums || '4個以上繋ぐとフィーバーゲージUP！';
                 resultDisplayEl.innerText = '-';
-                resultDisplayEl.className = 'text-2xl font-black text-cyan-400 min-h-[32px]';
+                resultDisplayEl.className = 'text-xl font-black text-cyan-400 min-h-[28px]';
             }
 
             selectedIndices.forEach(idx => {
@@ -666,7 +674,7 @@
             validFormulaMatch = null;
             formulaDisplayEl.innerText = '4個以上繋ぐとフィーバーゲージUP！';
             resultDisplayEl.innerText = '-';
-            resultDisplayEl.className = 'text-2xl font-black text-cyan-400 min-h-[32px]';
+            resultDisplayEl.className = 'text-xl font-black text-cyan-400 min-h-[28px]';
             ctx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
             updateUI();
         }
@@ -726,7 +734,7 @@
 
         function showTimePop(text, isNegative = false) {
             timePopEl.innerText = text;
-            timePopEl.className = `absolute -top-3 right-0 font-black text-lg pointer-events-none ${isNegative ? 'text-rose-500 time-minus-pop' : 'text-emerald-400 time-plus-pop'}`;
+            timePopEl.className = `absolute -top-3 right-0 font-black text-sm pointer-events-none ${isNegative ? 'text-rose-500 time-minus-pop' : 'text-emerald-400 time-plus-pop'}`;
             timePopEl.classList.remove('hidden');
             
             setTimeout(() => {
@@ -769,19 +777,19 @@
             const scores = JSON.parse(localStorage.getItem('make24_scores') || '[]');
 
             if (scores.length === 0) {
-                listEl.innerHTML = '<div class="text-slate-500 py-4 text-sm">プレイ記録がありません</div>';
+                listEl.innerHTML = '<div class="text-slate-500 py-4 text-xs">プレイ記録がありません</div>';
                 return;
             }
 
             listEl.innerHTML = scores.map((item, index) => {
                 const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-500';
                 return `
-                    <div class="flex justify-between items-center bg-slate-900/80 p-3 rounded-xl border border-slate-700/80">
-                        <div class="flex items-center gap-3">
-                            <span class="font-black text-lg ${rankColor}">#${index + 1}</span>
-                            <span class="text-xs text-slate-400">${item.date}</span>
+                    <div class="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl border border-slate-700/80">
+                        <div class="flex items-center gap-2.5">
+                            <span class="font-black text-base ${rankColor}">#${index + 1}</span>
+                            <span class="text-[10px] text-slate-400">${item.date}</span>
                         </div>
-                        <div class="font-black text-2xl text-emerald-400">${item.score} <span class="text-xs font-normal text-slate-400">pt</span></div>
+                        <div class="font-black text-xl text-emerald-400">${item.score} <span class="text-[10px] font-normal text-slate-400">pt</span></div>
                     </div>
                 `;
             }).join('');
