@@ -106,7 +106,6 @@
             text-shadow: 0 0 20px rgba(52, 211, 153, 0.6);
         }
 
-        /* 数式演出用クラス（画面拡大を防ぐためスケール量を調整しGPUアクセラレーションを適用） */
         .seq-token {
             display: inline-block;
             animation: tokenPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -152,7 +151,7 @@
             </div>
             <div class="flex items-start gap-2">
                 <span class="text-emerald-400 font-bold">③</span>
-                <span>正解すると残り時間が増加！お題や長さに応じてハイスコアを狙え！</span>
+                <span>正解で時間増加！<b>間違えると繋いだ数の分だけ大幅時間減算！</b></span>
             </div>
         </div>
 
@@ -217,7 +216,7 @@
             </button>
         </div>
 
-        <!-- ゲームボード (数式ポップアップ演出レイヤーを内包・overflow-hiddenでレイアウトの枠外拡大をシャットアウト) -->
+        <!-- ゲームボード -->
         <div id="board-container" class="relative w-full bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur my-auto overflow-hidden">
             <div id="board" class="board-grid"></div>
             <canvas id="line-canvas" class="absolute inset-0 pointer-events-none z-20"></canvas>
@@ -359,7 +358,6 @@
             }
         }
 
-        // ゲーム初期化（スタート時）
         function startNewGame() {
             score = 0;
             scoreEl.innerText = score;
@@ -369,7 +367,6 @@
             startTimer();
         }
 
-        // 盤面と状態のみをリセット（スコアは維持）
         function initBoardOnly() {
             board = [];
             for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
@@ -520,7 +517,7 @@
             }
         }
 
-        // 指を離した瞬間の処理
+        // 指を離した瞬間の処理（パネル数に応じたペナルティ設定）
         function handlePointerUp() {
             if (currentMode === 'TRACE' && isTracing) {
                 isTracing = false;
@@ -532,13 +529,18 @@
                     const indicesToPop = [...selectedIndices];
                     cancelSelection();
                     
+                    // 数式演出中はタイマーカウントダウンを一時停止
+                    pauseTimer();
                     playFormulaSequenceAnimation(formulaText, () => {
                         popTiles(indicesToPop);
+                        resumeTimer(); // 演出終了後にタイマー再開
                     });
                 } else if (selectedIndices.length >= 2) {
-                    timeLeft = Math.max(0, timeLeft - 3);
+                    // 【繋いだパネルの枚数 × 2秒】の減算ペナルティ
+                    const penaltySeconds = selectedIndices.length * 2;
+                    timeLeft = Math.max(0, timeLeft - penaltySeconds);
                     timerEl.innerText = timeLeft;
-                    showTimePop('-3s', true);
+                    showTimePop(`-${penaltySeconds}s`, true);
                     triggerBoardShake();
                     
                     if (timeLeft <= 0) {
@@ -820,6 +822,18 @@
             clearInterval(timerInterval);
             timeLeft = 60;
             timerEl.innerText = timeLeft;
+            resumeTimer();
+        }
+
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function resumeTimer() {
+            if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 timeLeft--;
                 timerEl.innerText = timeLeft;
@@ -884,7 +898,7 @@
         });
 
         document.getElementById('quit-to-title-btn').addEventListener('click', () => {
-            clearInterval(timerInterval);
+            pauseTimer();
             showScreen('title');
         });
 
