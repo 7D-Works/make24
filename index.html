@@ -151,7 +151,7 @@
             </div>
             <div class="flex items-start gap-2">
                 <span class="text-emerald-400 font-bold">③</span>
-                <span>正解で時間増加！<b>間違えると繋いだ数の分だけ大幅時間減算！</b></span>
+                <span>正解すると残り時間が増加！お題や長さに応じてハイスコアを狙え！</span>
             </div>
         </div>
 
@@ -282,11 +282,12 @@
             { type: 'NORMAL_ADD', label: '＋ のみ (足し算)', ops: ['＋'], style: 'bg-blue-600 text-white', multiplier: 1.0 },
             { type: 'NORMAL_MUL', label: '× のみ (掛け算)', ops: ['×'], style: 'bg-purple-600 text-white', multiplier: 1.5 },
             { type: 'NORMAL_SUB', label: '− のみ (引き算)', ops: ['−'], style: 'bg-teal-600 text-white', multiplier: 2.0 },
-            { type: 'COMBO_ADD_MUL', label: '＋ と × (複合)', ops: ['＋', '×'], style: 'bg-amber-500 text-slate-900 font-bold', multiplier: 2.5 },
-            { type: 'COMBO_ADD_SUB', label: '＋ と − (複合)', ops: ['＋', '−'], style: 'bg-indigo-500 text-white font-bold', multiplier: 2.5 },
-            { type: 'COMBO_MUL_SUB', label: '× と − (複合)', ops: ['×', '−'], style: 'bg-orange-600 text-white font-bold', multiplier: 3.0 },
-            { type: 'COMBO_DIV_ADD', label: '÷ と ＋ (複合)', ops: ['÷', '＋'], style: 'bg-cyan-600 text-white font-bold', multiplier: 3.5 },
-            { type: 'COMBO_SUB_DIV', label: '− と ÷ (複合)', ops: ['−', '÷'], style: 'bg-pink-600 text-white font-bold', multiplier: 3.5 },
+            { type: 'NORMAL_DIV', label: '÷ のみ (割り算)', ops: ['÷'], style: 'bg-sky-600 text-white', multiplier: 2.0 },
+            { type: 'COMBO_ADD_MUL', label: '＋ と × (足し算と掛け算)', ops: ['＋', '×'], style: 'bg-amber-500 text-slate-900 font-bold', multiplier: 2.5 },
+            { type: 'COMBO_ADD_SUB', label: '＋ と − (足し算と引き算)', ops: ['＋', '−'], style: 'bg-indigo-500 text-white font-bold', multiplier: 2.5 },
+            { type: 'COMBO_MUL_SUB', label: '× と − (掛け算と引き算)', ops: ['×', '−'], style: 'bg-orange-600 text-white font-bold', multiplier: 3.0 },
+            { type: 'COMBO_DIV_ADD', label: '÷ と ＋ (割り算と足し算)', ops: ['÷', '＋'], style: 'bg-cyan-600 text-white font-bold', multiplier: 3.5 },
+            { type: 'COMBO_SUB_DIV', label: '− と ÷ (引き算と割り算)', ops: ['−', '÷'], style: 'bg-pink-600 text-white font-bold', multiplier: 3.5 },
             { type: 'COMBO_MUL_DIV', label: '× と ÷ (激ムズ!)', ops: ['×', '÷'], style: 'bg-red-600 text-white font-black', multiplier: 4.0 }
         ];
 
